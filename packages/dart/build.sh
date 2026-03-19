@@ -45,42 +45,53 @@ termux_step_get_source() {
 termux_step_make_install() {
 	local arch
 	case ${TERMUX_ARCH} in
-		arm) arch=arm ;;
 		aarch64) arch=arm64 ;;
-		x86_64) arch=x64 ;;
-		*) termux_error_exit "Unsupported arch '${TERMUX_ARCH}'" ;;
+		*) termux_error_exit "Only aarch64 is supported for Universe IDE build" ;;
 	esac
-	python3 - <<'PATCH'
-import re, pathlib
+
+		# Samsung Knox fix — wrap listSync() in try/catch
+	local build_dart="sdk/pkg/dartdev/lib/src/commands/build.dart"
+	if grep -q "\.listSync()" "${build_dart}"; then
+		python3 - <<'PATCH'
+import pathlib
 f = pathlib.Path('sdk/pkg/dartdev/lib/src/commands/build.dart')
 code = f.read_text()
-old = """    entryPoints = binDirectory.existsSync()
-        ? binDirectory
-              .listSync()
-              .whereType<File>()
-              .where((e) => e.path.endsWith('dart'))
-              .toList()
-        : [];"""
-new = """    entryPoints = (() {
-      try {
-        return binDirectory.existsSync()
-            ? binDirectory
-                  .listSync()
-                  .whereType<File>()
-                  .where((e) => e.path.endsWith('dart'))
-                  .toList()
-            : <File>[];
-      } catch (_) {
-        // PathAccessException on Samsung Knox — /bin/ is restricted
-        return <File>[];
-      }
-    })();"""
+old = (
+    "    entryPoints = binDirectory.existsSync()\n"
+    "        ? binDirectory\n"
+    "              .listSync()\n"
+    "              .whereType<File>()\n"
+    "              .where((e) => e.path.endsWith('dart'))\n"
+    "              .toList()\n"
+    "        : [];"
+)
+new = (
+    "    entryPoints = (() {\n"
+    "      try {\n"
+    "        return binDirectory.existsSync()\n"
+    "            ? binDirectory\n"
+    "                  .listSync()\n"
+    "                  .whereType<File>()\n"
+    "                  .where((e) => e.path.endsWith('dart'))\n"
+    "                  .toList()\n"
+    "            : <File>[];\n"
+    "      } catch (_) {\n"
+    "        return <File>[];  // Samsung Knox blocks /bin/ listing\n"
+    "      }\n"
+    "    })();"
+)
 if old in code:
     f.write_text(code.replace(old, new))
     print("INFO: Samsung Knox patch applied.")
 else:
-    print("WARNING: Pattern not found — patch skipped (may already be applied or SDK changed).")
+    print("WARNING: Whitespace mismatch — patch skipped!")
+    print("--- ACTUAL LINES WITH listSync ---")
+    for i, l in enumerate(code.splitlines()):
+        if 'listSync' in l or 'entryPoints' in l:
+            print(f"  {i}: {repr(l)}")
 PATCH
+	fi
+
 
 	cd sdk
 	./tools/build.py --no-rbe --arch ${arch} --mode release --os android create_sdk

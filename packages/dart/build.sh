@@ -51,6 +51,41 @@ termux_step_make_install() {
 		*) termux_error_exit "Unsupported arch '${TERMUX_ARCH}'" ;;
 	esac
 
+	# Fix Samsung Knox crash: wrap the /bin/ listSync() in a try/catch
+	# File: sdk/pkg/dartdev/lib/src/commands/build.dart
+	python3 - <<'PATCH'
+import re, pathlib
+f = pathlib.Path('sdk/pkg/dartdev/lib/src/commands/build.dart')
+code = f.read_text()
+old = """    entryPoints = binDirectory.existsSync()
+        ? binDirectory
+              .listSync()
+              .whereType<File>()
+              .where((e) => e.path.endsWith('dart'))
+              .toList()
+        : [];"""
+new = """    entryPoints = (() {
+      try {
+        return binDirectory.existsSync()
+            ? binDirectory
+                  .listSync()
+                  .whereType<File>()
+                  .where((e) => e.path.endsWith('dart'))
+                  .toList()
+            : <File>[];
+      } catch (_) {
+        // PathAccessException on Samsung Knox — /bin/ is restricted
+        return <File>[];
+      }
+    })();"""
+if old in code:
+    f.write_text(code.replace(old, new))
+    print("INFO: Samsung Knox patch applied.")
+else:
+    print("WARNING: Pattern not found — patch skipped (may already be applied or SDK changed).")
+PATCH
+	# ── END PATCH 
+
 	cd sdk
 	./tools/build.py --no-rbe --arch ${arch} --mode release --os android create_sdk
 	mv ./out/ReleaseAndroid${arch^^}/dart-sdk ${TERMUX_PREFIX}/lib

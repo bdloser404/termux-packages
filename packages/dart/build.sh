@@ -50,9 +50,6 @@ termux_step_make_install() {
 		x86_64) arch=x64 ;;
 		*) termux_error_exit "Unsupported arch '${TERMUX_ARCH}'" ;;
 	esac
-
-	# Fix Samsung Knox crash: wrap the /bin/ listSync() in a try/catch
-	# File: sdk/pkg/dartdev/lib/src/commands/build.dart
 	python3 - <<'PATCH'
 import re, pathlib
 f = pathlib.Path('sdk/pkg/dartdev/lib/src/commands/build.dart')
@@ -84,7 +81,6 @@ if old in code:
 else:
     print("WARNING: Pattern not found — patch skipped (may already be applied or SDK changed).")
 PATCH
-	# ── END PATCH 
 
 	cd sdk
 	./tools/build.py --no-rbe --arch ${arch} --mode release --os android create_sdk

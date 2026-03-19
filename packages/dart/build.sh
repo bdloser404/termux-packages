@@ -59,10 +59,10 @@ code = f.read_text()
 old = (
     "    entryPoints = binDirectory.existsSync()\n"
     "        ? binDirectory\n"
-    "              .listSync()\n"
-    "              .whereType<File>()\n"
-    "              .where((e) => e.path.endsWith('dart'))\n"
-    "              .toList()\n"
+    "            .listSync()\n"
+    "            .whereType<File>()\n"
+    "            .where((e) => e.path.endsWith('dart'))\n"
+    "            .toList()\n"
     "        : [];"
 )
 new = (
@@ -70,16 +70,17 @@ new = (
     "      try {\n"
     "        return binDirectory.existsSync()\n"
     "            ? binDirectory\n"
-    "                  .listSync()\n"
-    "                  .whereType<File>()\n"
-    "                  .where((e) => e.path.endsWith('dart'))\n"
-    "                  .toList()\n"
+    "                .listSync()\n"
+    "                .whereType<File>()\n"
+    "                .where((e) => e.path.endsWith('dart'))\n"
+    "                .toList()\n"
     "            : <File>[];\n"
     "      } catch (_) {\n"
     "        return <File>[];  // Samsung Knox blocks /bin/ listing\n"
     "      }\n"
     "    })();"
 )
+
 if old in code:
     f.write_text(code.replace(old, new))
     print("INFO: Samsung Knox patch applied.")
